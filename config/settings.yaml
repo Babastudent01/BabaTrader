@@ -1,0 +1,284 @@
+# =============================================================================
+# Trading Bot — Main Configuration
+# =============================================================================
+# MODE: TEST (default) or LIVE
+# LIVE mode requires live_trading_enabled: true AND broker credentials in .env
+# =============================================================================
+
+# ── System ────────────────────────────────────────────────────────────────────
+mode: TEST                        # TEST | LIVE
+live_trading_enabled: false       # Must be true to allow LIVE mode
+timezone: Europe/Paris
+
+# ── Universe ──────────────────────────────────────────────────────────────────
+tickers:
+  # ── US tech / large-cap ───────────────────────────────────────────────────
+  - AAPL       # Apple
+  - MSFT       # Microsoft
+  - GOOGL      # Alphabet
+  - AMZN       # Amazon
+  - NVDA       # NVIDIA
+  - TSLA       # Tesla
+  # ── French CAC-40 / blue-chips ────────────────────────────────────────────
+  - HO.PA      # Thales
+  - DSY.PA     # Dassault Systèmes
+  - TTE.PA     # TotalEnergies
+  - AIR.PA     # Airbus
+  - AI.PA      # Air Liquide
+  - BNP.PA     # BNP Paribas
+  - CS.PA      # AXA
+  - MC.PA      # LVMH
+  - ORA.PA     # Orange
+  - VIE.PA     # Veolia
+  - GLE.PA     # Société Générale
+  # ── US broad-market ETFs ──────────────────────────────────────────────────
+  - SPY        # S&P 500 (SPDR)
+  - QQQ        # NASDAQ-100 (Invesco)
+  - IWM        # Russell 2000 small-cap (iShares)
+  - DIA        # Dow Jones Industrial Average (SPDR)
+  - VTI        # Total US Market (Vanguard)
+  # ── US sector ETFs ───────────────────────────────────────────────────────
+  - XLK        # Technology sector (SPDR)
+  - XLF        # Financials sector (SPDR)
+  - XLE        # Energy sector (SPDR)
+  - XLV        # Health Care sector (SPDR)
+  # ── Commodities & bonds ETFs ─────────────────────────────────────────────
+  - GLD        # Gold (SPDR)
+  - SLV        # Silver (iShares)
+  - TLT        # 20+ Year US Treasury bonds (iShares)
+  - HYG        # High-Yield Corporate Bonds (iShares)
+  # ── International ETFs ───────────────────────────────────────────────────
+  - EEM        # Emerging Markets (iShares)
+  - EFA        # Developed Markets ex-US (iShares)
+  # ── European UCITS ETFs (Euronext Paris) — TTF-exempt ────────────────────
+  - EWLD.PA    # Amundi MSCI World UCITS (Euronext Paris)
+  - ESE.PA     # SPDR S&P 500 UCITS ETF (Euronext Paris)
+
+
+# ── Data ──────────────────────────────────────────────────────────────────────
+data:
+  provider: yahoo                 # yahoo | alpha_vantage
+  timeframe: 1d                   # 1d | 1h | 15m (broker/provider dependent)
+  history_years: 5                # Years of historical data to fetch
+  cache_enabled: true
+  cache_dir: data/cache
+  cache_ttl_hours: 24             # Cache time-to-live in hours
+
+  # Optional data sources (set enabled: true to activate)
+  macro:
+    enabled: false
+    source: fred                  # fred (requires FRED_API_KEY in .env)
+    series:
+      - DGS10                     # 10-year Treasury yield
+      - UNRATE                    # Unemployment rate
+      - CPIAUCSL                  # CPI
+
+  news:
+    enabled: true
+    source: newsapi               # newsapi (requires NEWS_API_KEY in .env)
+    lookback_days: 30
+
+# ── Features ──────────────────────────────────────────────────────────────────
+features:
+  # Returns
+  return_periods: [1, 3, 5, 10, 20]
+
+  # Volatility
+  volatility_windows: [5, 10, 20]
+
+  # Moving averages
+  sma_windows: [10, 20, 50]
+  ema_windows: [10, 20]
+
+  # Momentum
+  rsi_period: 14
+  macd_fast: 12
+  macd_slow: 26
+  macd_signal: 9
+  atr_period: 14
+  bb_period: 20
+  bb_std: 2.0
+
+  # Volume
+  volume_windows: [5, 10, 20]
+
+  # Candle patterns (added automatically — no config required)
+
+  # Multi-timeframe analysis
+  multi_timeframe:
+    enabled: true
+    timeframes: [1wk, 1mo]       # Higher timeframes to fetch and compute indicators on
+    fetch_period: 10y             # How far back to fetch higher-TF data
+
+  # Target: predict next N-period return direction
+  target_horizon: 1              # Bars ahead to predict
+  target_threshold: 0.0          # Min return to classify as UP (0.0 = any positive)
+
+# ── Model ─────────────────────────────────────────────────────────────────────
+model:
+  type: gradient_boosting         # logistic | random_forest | gradient_boosting
+  save_dir: models/saved
+
+  # Walk-forward validation
+  walk_forward:
+    n_splits: 5
+    train_size: 0.7               # Fraction of each fold used for training
+    gap: 20                       # Gap bars between train and test (avoid leakage)
+
+  # Hyperparameters (used if not tuning)
+  logistic:
+    C: 1.0
+    max_iter: 1000
+    class_weight: balanced
+
+  random_forest:
+    n_estimators: 200
+    max_depth: 6
+    min_samples_leaf: 20
+    class_weight: balanced
+    n_jobs: -1
+
+  gradient_boosting:
+    n_estimators: 300
+    learning_rate: 0.05
+    max_depth: 4
+    subsample: 0.8
+    colsample_bytree: 0.8
+    use_gpu: false
+
+  # Deep-learning model (activated with --model-type deep)
+  # PyTorch CPU/GPU used if installed; sklearn MLP is the fallback.
+  deep_learning:
+    architecture: cnn_1d          # cnn_1d | lstm
+    sequence_length: 20           # Number of consecutive bars fed as a sequence
+    epochs: 50                    # Max training epochs (early stopping may exit earlier)
+    batch_size: 64
+    learning_rate: 0.001
+    dropout: 0.3
+    patience: 10                  # Early-stopping patience (epochs without improvement)
+
+# ── Strategy ──────────────────────────────────────────────────────────────────
+strategy:
+  confidence_threshold: 0.70     # Min model confidence to generate a signal
+  holding_period: 5              # Max bars to hold a position
+  max_positions: 5               # Max simultaneous open positions
+
+  # Safety filters
+  filters:
+    min_avg_volume: 500000        # Min 20-day avg volume (shares)
+    max_atr_pct: 0.05             # Max ATR/price ratio (5% = high volatility block)
+    min_price: 5.0                # Min stock price (avoid penny stocks)
+    allow_high_volatility: false  # Override volatility filter
+    block_holidays: true          # Don't trade on NYSE/LSE bank holidays
+    prefer_news_days: false       # Only trade near NFP/FOMC/CPI (within 5 days)
+    session_filter: false         # Avoid Asian-only session bars (intraday use only)
+
+  # Session preference (informational — used as ML features + filters above)
+  session:
+    prefer: [london, london_ny_overlap]   # Preferred trading sessions
+    avoid:  [asian]                       # Sessions to avoid when session_filter: true
+
+# ── Risk ──────────────────────────────────────────────────────────────────────
+risk:
+  # Position sizing method: fixed | percent | atr_based | kelly | confidence_weighted
+  sizing_method: confidence_weighted
+
+  # Fixed: fixed dollar amount per trade
+  fixed_amount: 50.0
+
+  # Percent: % of portfolio per trade (also used as fallback for other methods)
+  position_pct: 0.10             # 10% of portfolio per position
+
+  # Confidence-weighted: position size scales linearly with model confidence.
+  #   At confidence = confidence_threshold (e.g. 0.70) → position_pct_min
+  #   At confidence = 1.00                              → position_pct_max
+  # Example with threshold=0.70, min=5%, max=15%:
+  #   conf=0.70 → 5%   conf=0.80 → 8.3%   conf=0.90 → 11.7%   conf=1.00 → 15%
+  position_pct_min: 0.05         # 5%  — allocated at minimum-confidence signals
+  position_pct_max: 0.15         # 15% — allocated at maximum-confidence signals
+
+  # ATR-based: risk N * ATR per share, size accordingly
+  atr_risk_multiplier: 2.0
+  max_risk_per_trade_pct: 0.02   # Max 2% of portfolio at risk per trade
+
+  # Stop loss / Take profit
+  stop_loss_pct: 0.05            # 5% stop loss
+  take_profit_pct: 0.15          # 15% take profit
+
+  # Portfolio-level limits
+  max_daily_loss_pct: 0.10       # Stop trading if daily loss > 10%
+  max_drawdown_pct: 0.15         # Kill switch if drawdown > 15%
+
+# ── Execution ─────────────────────────────────────────────────────────────────
+execution:
+  # Transaction costs (applied in TEST and backtest modes)
+  commission_pct: 0.001          # 0.1% commission per trade
+  commission_min: 1.0            # Minimum commission per trade (EUR)
+  slippage_pct: 0.0005           # 0.05% slippage per trade
+
+  # Order type for LIVE mode
+  order_type: market             # market | limit
+
+  # Fractional shares — set true if your broker supports them (IBKR does for EU/US stocks).
+  # When true: quantities are rounded to 3 decimal places (e.g. 0.217 shares).
+  # When false: quantities are floored to whole shares (e.g. 2.9 → 2).
+  allow_fractional_shares: true
+
+  # Short selling (mock broker only for now)
+  # When true: a confident DOWN signal on a stock you DON'T hold opens a short.
+  # When false: DOWN signals are only used to EXIT existing longs.
+  allow_short_selling: true
+  # Margin requirement as a fraction of position value.
+  # 1.0 = 100% cash needed as collateral before opening a short.
+  short_margin_pct: 1.0
+
+  # TTF — Taxe sur les Transactions Financières (France)
+  # Applies to BUY orders on French large-cap equities (market cap > €1B).
+  # Identified by the ".PA" suffix (Euronext Paris).
+  # Rate: 0.3% of the purchase value, BUY side only (not sells).
+  ttf_pct: 0.003              # 0.3%
+  ttf_suffix: ".PA"           # ticker suffix that triggers TTF
+  # ETFs listed on Euronext Paris are legally exempt from TTF.
+  # Add any .PA ETF ticker here to prevent TTF from being charged.
+  ttf_exempt_tickers:
+    - EWLD.PA    # Amundi MSCI World UCITS ETF
+    - ESE.PA     # SPDR S&P 500 UCITS ETF
+
+# ── Backtesting ───────────────────────────────────────────────────────────────
+backtesting:
+  initial_cash: 1000.0           # Starting virtual cash for --mode backtest (EUR)
+  live_initial_cash: 1000.0      # Starting virtual cash for --mode live / paper trading (EUR)
+  start_date: "2020-01-01"
+  end_date: null                 # null = today
+
+# ── Reporting ─────────────────────────────────────────────────────────────────
+reporting:
+  output_dir: reports
+  save_csv: true
+  save_json: true
+  save_plots: true
+  plot_format: png               # png | pdf | svg
+
+# ── Live Trading ──────────────────────────────────────────────────────────────
+live_poll_interval_seconds: 60   # How often (seconds) to poll data and generate signals
+
+# How far back to fetch data for live trading and forecasting.
+#
+# ⚠️  Multi-timeframe features are enabled (1wk, 1mo timeframes).
+#     Monthly RSI(14) alone needs 14 monthly candles = ~14 months of history.
+#     Using too short a period leaves monthly/weekly features as NaN,
+#     which causes the deep model to output conf=0.5 for every signal.
+#
+# Minimum recommendations:
+#   - MTF disabled : 6mo  (covers SMA50 + all daily indicators)
+#   - MTF enabled  : 2y   (covers monthly RSI14, weekly SMA50, etc.)
+#
+# Valid values: 1mo, 3mo, 6mo, 1y, 2y, 5y
+live_period:     2y    # Data period used in --mode live     (was 3mo — too short for MTF)
+forecast_period: 2y    # Data period used in --mode forecast (was 3mo — too short for MTF)
+
+# ── Broker ────────────────────────────────────────────────────────────────────
+broker:
+  name: mock                     # mock | ibkr | saxo
+  # Broker-specific settings are loaded from .env
+  # See brokers/ibkr.py and brokers/saxo.py for required env vars
